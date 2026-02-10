@@ -69,7 +69,7 @@ function App() {
           }
         />
         <Route
-          path="/builder"
+          path="/dashboard/builder"
           element={
             <ProtectedRoute>
               <DashboardBuilderPage />

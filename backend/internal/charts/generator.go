@@ -3,6 +3,7 @@ package charts
 import (
 	"bytes"
 	"fmt"
+	"io"
 
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/opts"
@@ -132,7 +133,7 @@ func (g *ChartGenerator) extractEChartsConfig(chart interface{}) (map[string]int
 	var buf bytes.Buffer
 
 	type renderer interface {
-		Render(...interface{}) error
+		Render(w io.Writer) error
 	}
 
 	if r, ok := chart.(renderer); ok {
@@ -144,6 +145,15 @@ func (g *ChartGenerator) extractEChartsConfig(chart interface{}) (map[string]int
 	}
 
 	config := map[string]interface{}{
+		"title": map[string]interface{}{
+			"text": "Generated Chart",
+		},
+		"tooltip": map[string]interface{}{
+			"trigger": "axis",
+		},
+		"legend": map[string]interface{}{
+			"show": true,
+		},
 		"animation":         true,
 		"animationDuration": 1000,
 		"animationEasing":   "cubicOut",

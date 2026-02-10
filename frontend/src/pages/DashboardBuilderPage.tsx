@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ChartLibrary } from '../components/dashboard/ChartLibrary';
 import { DashboardCanvas } from '../components/dashboard/DashboardCanvas';
 import { TextBlockModal } from '../components/dashboard/TextBlockModal';
+import { ChartConfigModal } from '../components/dashboard/ChartConfigModal';
 import type { ChartTypeDefinition } from '../types/chartTypes';
 
 interface CanvasItem {
@@ -11,6 +12,7 @@ interface CanvasItem {
   type: 'chart' | 'text';
   chartType?: string;
   content?: string;
+  chartConfig?: any;
   position: {
     x: number;
     y: number;
@@ -22,9 +24,13 @@ interface CanvasItem {
 export function DashboardBuilderPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const sheetData = location.state?.sheetData || null;
+  
   const [items, setItems] = useState<CanvasItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<CanvasItem | null>(null);
   const [isTextModalOpen, setIsTextModalOpen] = useState(false);
+  const [isChartModalOpen, setIsChartModalOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -39,12 +45,12 @@ export function DashboardBuilderPage() {
     const newItem: CanvasItem = {
       id: `chart_${Date.now()}`,
       type: 'chart',
-      chartType: chartType.name,
+      chartType: chartType.type,
       position: {
-        x: (items.length * 50) % 500,  // Stagger horizontally
-        y: items.length * 20,            // Stagger vertically
-        w: 400,                          // 400px width
-        h: 300,                          // 300px height
+        x: (items.length * 50) % 500,
+        y: items.length * 20,
+        w: 400,
+        h: 300,
       },
     };
     setItems([...items, newItem]);
@@ -58,8 +64,8 @@ export function DashboardBuilderPage() {
       position: {
         x: (items.length * 50) % 500,
         y: items.length * 20,
-        w: 400,                          // 400px width
-        h: 80,                           // 80px height (small)
+        w: 400,
+        h: 80,
       },
     };
     setItems([...items, newItem]);
@@ -69,8 +75,8 @@ export function DashboardBuilderPage() {
     setSelectedItem(item);
     if (item.type === 'text') {
       setIsTextModalOpen(true);
-    } else {
-      alert(`Configure ${item.chartType}\n\nChart configuration coming next!`);
+    } else if (item.type === 'chart') {
+      setIsChartModalOpen(true);
     }
   };
 
@@ -78,6 +84,14 @@ export function DashboardBuilderPage() {
     if (selectedItem) {
       setItems(items.map(i => 
         i.id === selectedItem.id ? { ...i, content } : i
+      ));
+    }
+  };
+
+  const handleSaveChart = (config: any) => {
+    if (selectedItem) {
+      setItems(items.map(i =>
+        i.id === selectedItem.id ? { ...i, chartConfig: config.config } : i
       ));
     }
   };
@@ -124,6 +138,14 @@ export function DashboardBuilderPage() {
         initialContent={selectedItem?.content || ''}
         onSave={handleSaveTextBlock}
         onClose={() => setIsTextModalOpen(false)}
+      />
+
+      <ChartConfigModal
+        isOpen={isChartModalOpen}
+        chartType={selectedItem?.chartType || 'bar'}
+        sheetData={sheetData}
+        onSave={handleSaveChart}
+        onClose={() => setIsChartModalOpen(false)}
       />
     </div>
   );

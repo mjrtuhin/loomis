@@ -1,10 +1,12 @@
 import { Rnd } from 'react-rnd';
+import { ChartRenderer } from './ChartRenderer';
 
 interface CanvasItem {
   id: string;
   type: 'chart' | 'text';
   chartType?: string;
   content?: string;
+  chartConfig?: any;
   position: {
     x: number;
     y: number;
@@ -87,7 +89,6 @@ export function DashboardCanvas({ items, onItemsChange, onItemClick }: Dashboard
               className="group"
             >
               <div className="h-full w-full bg-white rounded-lg shadow-md border-2 border-gray-200 hover:border-blue-400 hover:shadow-lg transition-all overflow-hidden">
-                {/* Hover Controls */}
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-1">
                   <button
                     onClick={(e) => {
@@ -111,16 +112,19 @@ export function DashboardCanvas({ items, onItemsChange, onItemClick }: Dashboard
                   </button>
                 </div>
 
-                {/* Content */}
                 <div className="h-full p-3 overflow-auto">
                   {item.type === 'chart' ? (
-                    <div className="h-full flex items-center justify-center">
-                      <div className="text-center text-gray-400">
-                        <div className="text-4xl mb-2">📊</div>
-                        <p className="text-sm text-gray-500">Click ⚙️ to configure</p>
-                        <p className="text-xs text-gray-400 mt-1">{item.chartType}</p>
+                    item.chartConfig ? (
+                      <ChartRenderer config={item.chartConfig} />
+                    ) : (
+                      <div className="h-full flex items-center justify-center">
+                        <div className="text-center text-gray-400">
+                          <div className="text-4xl mb-2">📊</div>
+                          <p className="text-sm text-gray-500">Click ⚙️ to configure</p>
+                          <p className="text-xs text-gray-400 mt-1">{item.chartType}</p>
+                        </div>
                       </div>
-                    </div>
+                    )
                   ) : (
                     <div className="h-full w-full">
                       {item.content ? (

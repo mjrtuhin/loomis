@@ -52,10 +52,9 @@ func main() {
 			})
 		})
 
-		api.POST("/sheets/analyze", authMiddleware.RequireAuth(), dataHandler.AnalyzeSheet)
-
-		api.POST("/charts/generate", authMiddleware.RequireAuth(), chartHandler.GenerateChart)
-		api.GET("/charts/types", authMiddleware.RequireAuth(), chartHandler.GetChartTypes)
+		api.POST("/sheets/analyze", dataHandler.AnalyzeSheet)
+		api.POST("/charts/generate", chartHandler.GenerateChart)
+		api.GET("/charts/types", chartHandler.GetChartTypes)
 	}
 
 	log.Printf("Server starting on port %s", cfg.Port)
