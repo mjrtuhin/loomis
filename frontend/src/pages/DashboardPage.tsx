@@ -29,8 +29,7 @@ export function DashboardPage() {
   };
 
   const handleBuildDashboard = () => {
-    // TODO: Navigate to dashboard builder
-    alert('Dashboard builder coming in next phase! 🚀');
+    navigate('/builder');
   };
 
   const handleReset = () => {

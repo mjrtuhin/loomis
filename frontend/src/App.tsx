@@ -1,10 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { LandingPage } from './pages/LandingPage';
 import { AuthPage } from './pages/AuthPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { DashboardBuilderPage } from './pages/DashboardBuilderPage';
 
-// Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
@@ -12,8 +12,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
     );
@@ -26,7 +26,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Public Route Component (redirect to dashboard if already logged in)
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
@@ -34,8 +33,8 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
     );
@@ -50,9 +49,8 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
-        {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route
           path="/auth"
@@ -62,8 +60,6 @@ function App() {
             </PublicRoute>
           }
         />
-
-        {/* Protected Routes */}
         <Route
           path="/dashboard"
           element={
@@ -72,11 +68,16 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        {/* Catch all - redirect to home */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route
+          path="/builder"
+          element={
+            <ProtectedRoute>
+              <DashboardBuilderPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
 
