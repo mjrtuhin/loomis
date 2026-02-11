@@ -9,6 +9,7 @@ export function DashboardListPage() {
   const navigate = useNavigate();
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openingDashboard, setOpeningDashboard] = useState<string | null>(null);
 
   useEffect(() => {
     loadDashboards();
@@ -32,21 +33,42 @@ export function DashboardListPage() {
     navigate('/dashboard');
   };
 
-  const handleOpenDashboard = (dashboard: Dashboard) => {
-    const items = [
-      ...dashboard.layout.charts,
-      ...dashboard.layout.textBlocks
-    ];
+  const handleOpenDashboard = async (dashboard: Dashboard) => {
+    setOpeningDashboard(dashboard.id);
+    
+    try {
+      const response = await fetch('http://localhost:8080/api/sheets/load', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: dashboard.googleSheetUrl })
+      });
 
-    navigate('/dashboard/builder', {
-      state: {
-        dashboardId: dashboard.id,
-        googleSheetUrl: dashboard.googleSheetUrl,
-        items: items,
-        refreshInterval: dashboard.refreshInterval,
-        sheetData: null
+      if (!response.ok) {
+        throw new Error('Failed to load sheet data');
       }
-    });
+
+      const result = await response.json();
+
+      const items = [
+        ...dashboard.layout.charts,
+        ...dashboard.layout.textBlocks
+      ];
+
+      navigate('/dashboard/builder', {
+        state: {
+          dashboardId: dashboard.id,
+          googleSheetUrl: dashboard.googleSheetUrl,
+          items: items,
+          refreshInterval: dashboard.refreshInterval,
+          sheetData: result.data
+        }
+      });
+    } catch (error: any) {
+      console.error('Failed to open dashboard:', error);
+      alert(`❌ Failed to load dashboard data: ${error.message}\n\nMake sure:\n1. Backend is running\n2. Google Sheet is still public`);
+    } finally {
+      setOpeningDashboard(null);
+    }
   };
 
   const handleDeleteDashboard = async (dashboardId: string) => {
@@ -155,9 +177,10 @@ export function DashboardListPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleOpenDashboard(dashboard)}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+                      disabled={openingDashboard === dashboard.id}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium disabled:opacity-50 disabled:cursor-wait"
                     >
-                      Open
+                      {openingDashboard === dashboard.id ? '⏳ Opening...' : 'Open'}
                     </button>
                     <button
                       onClick={() => handleDeleteDashboard(dashboard.id)}
