@@ -1,0 +1,16 @@
+  const handleOpenDashboard = (dashboard: Dashboard) => {
+    const items = [
+      ...dashboard.layout.charts.map(c => ({ ...c, type: 'chart' as const })),
+      ...dashboard.layout.textBlocks.map(t => ({ ...t, type: 'text' as const }))
+    ];
+
+    navigate('/dashboard/builder', {
+      state: {
+        dashboardId: dashboard.id,
+        googleSheetUrl: dashboard.googleSheetUrl,
+        items: items,
+        refreshInterval: dashboard.refreshInterval,
+        sheetData: null
+      }
+    });
+  };

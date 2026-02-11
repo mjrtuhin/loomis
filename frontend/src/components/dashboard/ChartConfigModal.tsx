@@ -1,195 +1,231 @@
 import { useState, useEffect } from 'react';
-import { ChartRenderer } from './ChartRenderer';
+import ReactECharts from 'echarts-for-react';
+import 'echarts-gl';
+import {
+  BarChartConfig,
+  LineChartConfig,
+  PieChartConfig,
+  HorizontalBarChartConfig,
+  BoxPlotChartConfig,
+  EffectScatterChartConfig,
+  SmoothLineChartConfig,
+  AreaChartConfig,
+  FunnelChartConfig,
+  GaugeChartConfig,
+  HeatmapChartConfig,
+  LiquidChartConfig,
+  RadarChartConfig,
+  CandlestickChartConfig,
+  WordCloudChartConfig,
+  ParallelChartConfig,
+  BubbleChartConfig,
+  GraphChartConfig,
+  Line3DChartConfig,
+  Bar3DChartConfig,
+  Scatter3DChartConfig,
+  Surface3DChartConfig,
+  ThemeRiverChartConfig,
+  SankeyChartConfig,
+  GeoChartConfig,
+  MapChartConfig,
+  TreemapChartConfig,
+  CalendarHeatmapChartConfig,
+  ViolinPlotChartConfig,
+  StackedBarChartConfig,
+  PolarBarChartConfig,
+  GanttChartConfig
+} from './ChartConfigs';
 
 interface ChartConfigModalProps {
   isOpen: boolean;
-  chartType: string;
   onClose: () => void;
+  chartType: string;
+  sheetData: { headers: string[]; rows: string[][] } | null;
   onSave: (config: any) => void;
-  sheetData: {
-    headers: string[];
-    rows: string[][];
-  } | null;
 }
 
-export function ChartConfigModal({
-  isOpen,
-  chartType,
-  onClose,
-  onSave,
-  sheetData,
-}: ChartConfigModalProps) {
-  const [xColumn, setXColumn] = useState('');
-  const [yColumn, setYColumn] = useState('');
-  const [title, setTitle] = useState('');
-  const [previewConfig, setPreviewConfig] = useState<any>(null);
+export function ChartConfigModal({ isOpen, onClose, chartType, sheetData, onSave }: ChartConfigModalProps) {
+  const [chartConfig, setChartConfig] = useState<any>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   useEffect(() => {
-    const generatePreview = async () => {
-      if (!sheetData || !xColumn || !yColumn) return;
+    if (!isOpen) {
+      setChartConfig(null);
+      setPreviewError(null);
+    }
+  }, [isOpen]);
 
-      const xIndex = sheetData.headers.indexOf(xColumn);
-      const yIndex = sheetData.headers.indexOf(yColumn);
+  if (!isOpen) return null;
 
-      if (xIndex === -1 || yIndex === -1) return;
-
-      const xData = sheetData.rows.map(row => row[xIndex]);
-      const yData = sheetData.rows.map(row => parseFloat(row[yIndex]) || 0);
-
-      const requestData = {
-        type: chartType,
-        title: title || xColumn + ' vs ' + yColumn,
-        xAxisData: xData,
-        series: [{ name: yColumn, data: yData }],
-      };
-
-      try {
-        const response = await fetch('http://localhost:8080/api/charts/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestData),
-        });
-
-        const result = await response.json();
-        
-        const enhancedConfig = {
-          ...result.chartConfig,
-          title: {
-            text: title || (xColumn + ' vs ' + yColumn),
-            left: 'center',
-          },
-          xAxis: {
-            type: 'category',
-            data: xData,
-          },
-          yAxis: {
-            type: 'value',
-          },
-          series: [{
-            name: yColumn,
-            type: chartType === 'line' ? 'line' : chartType === 'pie' ? 'pie' : 'bar',
-            data: yData,
-            smooth: chartType === 'line',
-          }],
-        };
-        
-        setPreviewConfig(enhancedConfig);
-      } catch (error) {
-        console.error('Failed to generate chart:', error);
-      }
-    };
-
-    generatePreview();
-  }, [xColumn, yColumn, title, chartType]);
+  const handlePreviewChange = (config: any) => {
+    try {
+      setPreviewError(null);
+      setChartConfig(config);
+    } catch (err: any) {
+      console.error('Preview config error:', err);
+      setPreviewError(err.message || 'Invalid configuration');
+    }
+  };
 
   const handleSave = () => {
-    if (previewConfig) {
-      onSave({
-        type: chartType,
-        title: title || 'My Chart',
-        xColumn,
-        yColumn,
-        config: previewConfig,
-      });
+    if (chartConfig && !previewError) {
+      onSave(chartConfig);
       onClose();
     }
   };
 
-  if (!isOpen) return null;
+  const renderConfigComponent = () => {
+    try {
+      switch (chartType) {
+        case 'bar':
+          return <BarChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'line':
+          return <LineChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'pie':
+          return <PieChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'horizontalBar':
+          return <HorizontalBarChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'boxplot':
+          return <BoxPlotChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'effectScatter':
+          return <EffectScatterChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'smoothLine':
+          return <SmoothLineChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'area':
+          return <AreaChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'funnel':
+          return <FunnelChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'gauge':
+          return <GaugeChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'heatmap':
+          return <HeatmapChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'liquid':
+          return <LiquidChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'radar':
+          return <RadarChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'candlestick':
+          return <CandlestickChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'wordcloud':
+          return <WordCloudChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'parallel':
+          return <ParallelChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'bubble':
+          return <BubbleChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'graph':
+          return <GraphChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'line3d':
+          return <Line3DChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'bar3d':
+          return <Bar3DChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'scatter3d':
+          return <Scatter3DChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'surface3d':
+          return <Surface3DChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'themeRiver':
+          return <ThemeRiverChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'sankey':
+          return <SankeyChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'geo':
+          return <GeoChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'map':
+          return <MapChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'treemap':
+          return <TreemapChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'calendarHeatmap':
+          return <CalendarHeatmapChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'violin':
+          return <ViolinPlotChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'stackedBar':
+          return <StackedBarChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'polarBar':
+          return <PolarBarChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        case 'gantt':
+          return <GanttChartConfig sheetData={sheetData} onPreviewChange={handlePreviewChange} />;
+        default:
+          return (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Configuration for {chartType} coming soon...</p>
+            </div>
+          );
+      }
+    } catch (err: any) {
+      console.error('Config component error:', err);
+      return (
+        <div className="bg-red-50 rounded-lg border-2 border-red-200 p-6">
+          <div className="text-4xl mb-3 text-center">⚠️</div>
+          <h3 className="text-lg font-semibold text-red-900 mb-2 text-center">Configuration Error</h3>
+          <p className="text-sm text-red-700 text-center">{err.message}</p>
+        </div>
+      );
+    }
+  };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-[900px] max-h-[90vh] overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">
-            Configure {chartType} Chart
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Configure Chart: {chartType}
           </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 Data Mapping</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Chart Title
-                  </label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder={xColumn && yColumn ? `${xColumn} vs ${yColumn}` : "My Chart"}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+        {/* Content */}
+        <div className="flex-1 overflow-hidden flex">
+          {/* Left Panel - Configuration */}
+          <div className="w-1/3 border-r border-gray-200 p-6 overflow-y-auto">
+            {renderConfigComponent()}
+          </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    X-Axis Column
-                  </label>
-                  <select
-                    value={xColumn}
-                    onChange={(e) => setXColumn(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select column...</option>
-                    {sheetData?.headers.map((header) => (
-                      <option key={header} value={header}>
-                        {header}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Y-Axis Column
-                  </label>
-                  <select
-                    value={yColumn}
-                    onChange={(e) => setYColumn(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select column...</option>
-                    {sheetData?.headers.map((header) => (
-                      <option key={header} value={header}>
-                        {header}
-                      </option>
-                    ))}
-                  </select>
+          {/* Right Panel - Preview */}
+          <div className="flex-1 p-6 overflow-y-auto bg-gray-50">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Preview</h3>
+            {previewError ? (
+              <div className="bg-white rounded-lg shadow-sm p-4 h-[500px] flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-4xl mb-3">⚠️</div>
+                  <h3 className="text-lg font-semibold text-red-900 mb-2">Preview Error</h3>
+                  <p className="text-sm text-red-700 max-w-md">{previewError}</p>
                 </div>
               </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">👁️ Live Preview</h3>
-              <div className="border border-gray-300 rounded-lg bg-gray-50 h-80">
-                {previewConfig ? (
-                  <ChartRenderer config={previewConfig} />
-                ) : (
-                  <div className="h-full flex items-center justify-center text-gray-500">
-                    Select columns to see preview
-                  </div>
-                )}
+            ) : chartConfig ? (
+              <div className="bg-white rounded-lg shadow-sm p-4 h-[500px]">
+                <ReactECharts
+                  option={chartConfig}
+                  style={{ height: '100%', width: '100%' }}
+                  opts={{ renderer: 'canvas' }}
+                />
               </div>
-            </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm p-4 h-[500px] flex items-center justify-center">
+                <p className="text-gray-400">Configure chart to see preview</p>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end space-x-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            disabled={!previewConfig}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!chartConfig || !!previewError}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Apply & Close
+            Add to Dashboard
           </button>
         </div>
       </div>

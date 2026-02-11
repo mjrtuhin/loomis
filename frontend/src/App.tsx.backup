@@ -3,7 +3,6 @@ import { useAuth } from './hooks/useAuth';
 import { LandingPage } from './pages/LandingPage';
 import { AuthPage } from './pages/AuthPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { DashboardListPage } from './pages/DashboardListPage';
 import { DashboardBuilderPage } from './pages/DashboardBuilderPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -42,8 +41,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
-    // CHANGED: Redirect to dashboard LIST instead of data loading page
-    return <Navigate to="/dashboards" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -62,18 +60,6 @@ function App() {
             </PublicRoute>
           }
         />
-        
-        {/* NEW ROUTE: Dashboard list page */}
-        <Route
-          path="/dashboards"
-          element={
-            <ProtectedRoute>
-              <DashboardListPage />
-            </ProtectedRoute>
-          }
-        />
-        
-        {/* EXISTING: Google Sheets data loading */}
         <Route
           path="/dashboard"
           element={
@@ -82,8 +68,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        
-        {/* EXISTING: Dashboard builder */}
         <Route
           path="/dashboard/builder"
           element={

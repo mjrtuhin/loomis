@@ -19,13 +19,19 @@ export function DashboardPage() {
   };
 
   const handleLoadSheet = async (url: string) => {
-    setLoading(true);
+    // CLEAR OLD DATA FIRST - THIS IS THE FIX
+    setData(null);
+    setQuality(null);
     setError(null);
+    
+    setLoading(true);
     setSheetUrl(url);
 
     try {
       const token = localStorage.getItem('firebaseToken');
-      const response = await fetch('http://localhost:8080/api/sheets/analyze', {
+      
+      // Add timestamp to prevent caching
+      const response = await fetch(`http://localhost:8080/api/sheets/analyze?t=${Date.now()}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -35,13 +41,16 @@ export function DashboardPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to load sheet');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to load sheet');
       }
 
       const result = await response.json();
+      console.log('✅ Loaded NEW sheet data:', result);
       setData(result.data);
       setQuality(result.quality);
     } catch (err: any) {
+      console.error('❌ Error loading sheet:', err);
       setError(err.message || 'Failed to load sheet');
     } finally {
       setLoading(false);
@@ -49,6 +58,7 @@ export function DashboardPage() {
   };
 
   const handleBuildDashboard = () => {
+    console.log('🚀 Building dashboard with data:', data);
     navigate('/dashboard/builder', { state: { sheetData: data } });
   };
 
