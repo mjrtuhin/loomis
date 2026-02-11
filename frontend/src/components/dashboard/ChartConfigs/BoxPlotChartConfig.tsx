@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { validateNumericColumn, validateColumnExists } from '../../../utils/chartValidation';
 
 interface BoxPlotChartConfigProps {
   sheetData: { headers: string[]; rows: string[][] } | null;
@@ -7,129 +6,166 @@ interface BoxPlotChartConfigProps {
 }
 
 export function BoxPlotChartConfig({ sheetData, onPreviewChange }: BoxPlotChartConfigProps) {
-  const [categoryColumn, setCategoryColumn] = useState('');
   const [valueColumn, setValueColumn] = useState('');
+  const [categoryColumn, setCategoryColumn] = useState('');
   const [title, setTitle] = useState('');
 
   useEffect(() => {
-    if (!sheetData || !categoryColumn || !valueColumn) {
-      onPreviewChange(null);
-      return;
-    }
+    if (!sheetData || !valueColumn) return;
 
-    const categoryValidation = validateColumnExists(sheetData.headers, categoryColumn);
-    if (!categoryValidation.isValid) {
-      onPreviewChange({ error: categoryValidation.error });
-      return;
-    }
+    const valueIndex = sheetData.headers.indexOf(valueColumn);
+    if (valueIndex === -1) return;
 
-    const formattedRows = sheetData.rows.map(row => {
-      const obj: any = {};
-      sheetData.headers.forEach((header, idx) => {
-        obj[header] = row[idx];
-      });
-      return obj;
-    });
+    let categories: string[] = ['Data'];
+    let boxData: number[][][] = [[]];
 
-    const valueValidation = validateNumericColumn(sheetData.headers, formattedRows, valueColumn);
-    if (!valueValidation.isValid) {
-      onPreviewChange({ error: valueValidation.error });
-      return;
-    }
+    if (categoryColumn) {
+      const categoryIndex = sheetData.headers.indexOf(categoryColumn);
+      if (categoryIndex !== -1) {
+        const grouped: { [key: string]: number[] } = {};
+        
+        sheetData.rows.forEach(row => {
+          const cat = row[categoryIndex];
+          const val = parseFloat(row[valueIndex]);
+          if (!isNaN(val)) {
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(val);
+          }
+        });
 
-    const groupedData: { [key: string]: number[] } = {};
-    
-    formattedRows.forEach(row => {
-      const category = String(row[categoryColumn] || 'Unknown');
-      const value = parseFloat(row[valueColumn]);
-      
-      if (!isNaN(value)) {
-        if (!groupedData[category]) {
-          groupedData[category] = [];
-        }
-        groupedData[category].push(value);
+        categories = Object.keys(grouped);
+        boxData = categories.map(cat => {
+          const values = grouped[cat].sort((a, b) => a - b);
+          const q1 = values[Math.floor(values.length * 0.25)];
+          const median = values[Math.floor(values.length * 0.5)];
+          const q3 = values[Math.floor(values.length * 0.75)];
+          const min = values[0];
+          const max = values[values.length - 1];
+          return [min, q1, median, q3, max];
+        });
       }
-    });
-
-    const categories = Object.keys(groupedData);
-    const boxData = categories.map(cat => {
-      const values = groupedData[cat].sort((a, b) => a - b);
-      const min = values[0];
-      const max = values[values.length - 1];
+    } else {
+      const values = sheetData.rows
+        .map(row => parseFloat(row[valueIndex]))
+        .filter(v => !isNaN(v))
+        .sort((a, b) => a - b);
+      
       const q1 = values[Math.floor(values.length * 0.25)];
       const median = values[Math.floor(values.length * 0.5)];
       const q3 = values[Math.floor(values.length * 0.75)];
-      return [min, q1, median, q3, max];
-    });
+      const min = values[0];
+      const max = values[values.length - 1];
+      
+      boxData = [[min, q1, median, q3, max]];
+    }
 
     const config = {
-      title: { text: title || 'Box Plot', left: 'center' },
-      tooltip: { trigger: 'item', axisPointer: { type: 'shadow' } },
-      xAxis: { type: 'category', data: categories },
-      yAxis: { type: 'value' },
+      title: { 
+        text: title || `${valueColumn} Distribution`, 
+        left: 'center',
+        textStyle: { fontSize: 18 }
+      },
+      tooltip: {
+        trigger: 'item',
+        formatter: (params: any) => {
+          const data = params.data;
+          return `Min: ${data[0]}<br/>Q1: ${data[1]}<br/>Median: ${data[2]}<br/>Q3: ${data[3]}<br/>Max: ${data[4]}`;
+        }
+      },
+      grid: {
+        left: '10%',
+        right: '10%',
+        bottom: '15%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: categories,
+        boundaryGap: true,
+        splitArea: {
+          show: false
+        }
+      },
+      yAxis: {
+        type: 'value',
+        name: valueColumn,
+        splitArea: {
+          show: true
+        }
+      },
       series: [{
+        name: 'boxplot',
         type: 'boxplot',
-        data: boxData
+        data: boxData,
+        itemStyle: {
+          color: '#fac858',
+          borderColor: '#ee6666'
+        },
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 10,
+            shadowColor: 'rgba(0,0,0,0.3)',
+            borderWidth: 2
+          }
+        }
       }],
-      _columnMetadata: {
-        category: categoryColumn,
-        value: valueColumn,
-        chartType: 'boxplot'
-      }
+      animation: true,
+      animationDuration: 1000,
+      animationEasing: 'elasticOut'
     };
 
     onPreviewChange(config);
-  }, [sheetData, categoryColumn, valueColumn, title]);
-
-  if (!sheetData) {
-    return <div className="text-gray-500">No data available</div>;
-  }
+  }, [valueColumn, categoryColumn, title, sheetData, onPreviewChange]);
 
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Chart Title</label>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          placeholder="Box Plot"
-        />
-      </div>
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900">📦 Configure Box Plot</h3>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Chart Title
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={valueColumn ? `${valueColumn} Distribution` : "My Box Plot"}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Category Column</label>
-        <select
-          value={categoryColumn}
-          onChange={(e) => setCategoryColumn(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-        >
-          <option value="">Select column</option>
-          {sheetData.headers.map((header) => (
-            <option key={header} value={header}>{header}</option>
-          ))}
-        </select>
-      </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Value Column (Numeric) *
+          </label>
+          <select
+            value={valueColumn}
+            onChange={(e) => setValueColumn(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Select column...</option>
+            {sheetData?.headers.map((header) => (
+              <option key={header} value={header}>{header}</option>
+            ))}
+          </select>
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Value Column</label>
-        <select
-          value={valueColumn}
-          onChange={(e) => setValueColumn(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-        >
-          <option value="">Select column</option>
-          {sheetData.headers.map((header) => (
-            <option key={header} value={header}>{header}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-        <p className="text-sm text-blue-800">
-          💡 Shows distribution: min, Q1, median, Q3, max for each category
-        </p>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Category Column (Optional)
+          </label>
+          <select
+            value={categoryColumn}
+            onChange={(e) => setCategoryColumn(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">None (single box)</option>
+            {sheetData?.headers.map((header) => (
+              <option key={header} value={header}>{header}</option>
+            ))}
+          </select>
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { validateNumericColumn, validateColumnExists } from '../../../utils/chartValidation';
-import { aggregateData } from '../../../utils/dataAggregation';
+import { ChartRenderer } from '../ChartRenderer';
 
 interface LineChartConfigProps {
   sheetData: { headers: string[]; rows: string[][] } | null;
@@ -11,118 +10,117 @@ export function LineChartConfig({ sheetData, onPreviewChange }: LineChartConfigP
   const [xColumn, setXColumn] = useState('');
   const [yColumn, setYColumn] = useState('');
   const [title, setTitle] = useState('');
-  const [smooth, setSmooth] = useState(false);
 
   useEffect(() => {
-    if (!sheetData || !xColumn || !yColumn) {
-      onPreviewChange(null);
-      return;
-    }
+    if (!sheetData || !xColumn || !yColumn) return;
 
-    const xValidation = validateColumnExists(sheetData.headers, xColumn);
-    if (!xValidation.isValid) {
-      onPreviewChange({ error: xValidation.error });
-      return;
-    }
+    const xIndex = sheetData.headers.indexOf(xColumn);
+    const yIndex = sheetData.headers.indexOf(yColumn);
+    if (xIndex === -1 || yIndex === -1) return;
 
-    const formattedRows = sheetData.rows.map(row => {
-      const obj: any = {};
-      sheetData.headers.forEach((header, idx) => {
-        obj[header] = row[idx];
-      });
-      return obj;
-    });
-
-    const yValidation = validateNumericColumn(sheetData.headers, formattedRows, yColumn);
-    if (!yValidation.isValid) {
-      onPreviewChange({ error: yValidation.error });
-      return;
-    }
-
-    const { categories, values } = aggregateData(formattedRows, xColumn, yColumn);
+    const xData = sheetData.rows.map(row => row[xIndex]);
+    const yData = sheetData.rows.map(row => parseFloat(row[yIndex]) || 0);
 
     const config = {
-      title: { text: title || 'Line Chart', left: 'center' },
-      tooltip: { trigger: 'axis' },
-      xAxis: { type: 'category', data: categories },
-      yAxis: { type: 'value' },
+      title: { 
+        text: title || `${xColumn} vs ${yColumn}`, 
+        left: 'center',
+        textStyle: { fontSize: 18 }
+      },
+      tooltip: { 
+        trigger: 'axis'
+      },
+      legend: { 
+        show: true,
+        bottom: 0
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '10%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: xData,
+        boundaryGap: false
+      },
+      yAxis: {
+        type: 'value',
+        name: yColumn
+      },
       series: [{
+        name: yColumn,
         type: 'line',
-        data: values,
-        smooth: smooth,
-        lineStyle: { color: '#5470c6' },
-        itemStyle: { color: '#5470c6' }
+        data: yData,
+        smooth: false,
+        lineStyle: {
+          width: 2,
+          color: '#5470c6'
+        },
+        itemStyle: {
+          color: '#5470c6'
+        },
+        symbol: 'circle',
+        symbolSize: 6
       }],
-      _columnMetadata: {
-        x: xColumn,
-        y: yColumn,
-        chartType: 'line',
-        smooth: smooth
-      }
+      animation: true,
+      animationDuration: 1000,
+      animationEasing: 'cubicOut'
     };
 
     onPreviewChange(config);
-  }, [sheetData, xColumn, yColumn, title, smooth]);
-
-  if (!sheetData) {
-    return <div className="text-gray-500">No data available</div>;
-  }
+  }, [xColumn, yColumn, title, sheetData, onPreviewChange]);
 
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Chart Title</label>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          placeholder="Line Chart"
-        />
-      </div>
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900">📈 Configure Line Chart</h3>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Chart Title
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={xColumn && yColumn ? `${xColumn} vs ${yColumn}` : "My Line Chart"}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">X-axis Column</label>
-        <select
-          value={xColumn}
-          onChange={(e) => setXColumn(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-        >
-          <option value="">Select column</option>
-          {sheetData.headers.map((header) => (
-            <option key={header} value={header}>{header}</option>
-          ))}
-        </select>
-      </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            X-Axis *
+          </label>
+          <select
+            value={xColumn}
+            onChange={(e) => setXColumn(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Select column...</option>
+            {sheetData?.headers.map((header) => (
+              <option key={header} value={header}>{header}</option>
+            ))}
+          </select>
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Y-axis Column</label>
-        <select
-          value={yColumn}
-          onChange={(e) => setYColumn(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-        >
-          <option value="">Select column</option>
-          {sheetData.headers.map((header) => (
-            <option key={header} value={header}>{header}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={smooth}
-          onChange={(e) => setSmooth(e.target.checked)}
-          className="rounded"
-        />
-        <label className="text-sm text-gray-700">Smooth curve</label>
-      </div>
-
-      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-        <p className="text-sm text-blue-800">
-          💡 <strong>Auto-aggregation:</strong> Duplicate X values are automatically summed
-        </p>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Y-Axis *
+          </label>
+          <select
+            value={yColumn}
+            onChange={(e) => setYColumn(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Select column...</option>
+            {sheetData?.headers.map((header) => (
+              <option key={header} value={header}>{header}</option>
+            ))}
+          </select>
+        </div>
       </div>
     </div>
   );

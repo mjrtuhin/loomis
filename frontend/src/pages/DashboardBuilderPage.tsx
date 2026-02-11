@@ -7,7 +7,6 @@ import { DashboardCanvas } from '../components/dashboard/DashboardCanvas';
 import { TextBlockModal } from '../components/dashboard/TextBlockModal';
 import { ChartConfigModal } from '../components/dashboard/ChartConfigModal';
 import { dashboardService } from '../services/firestore';
-import { regenerateChartConfig } from '../utils/chartConfigRegenerator';
 
 interface CanvasItem {
   id: string;
@@ -38,10 +37,8 @@ export function DashboardBuilderPage() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const initialSheetData = location.state?.sheetData || null;
+  const sheetData = location.state?.sheetData || null;
   const googleSheetUrl = location.state?.googleSheetUrl || '';
-  console.log("🔍 DashboardBuilderPage - googleSheetUrl:", googleSheetUrl);
-  console.log("🔍 DashboardBuilderPage - location.state:", location.state);
   const initialDashboardId = location.state?.dashboardId || null;
   const initialItems = location.state?.items || [];
   const initialRefreshInterval = location.state?.refreshInterval || 60;
@@ -54,39 +51,6 @@ export function DashboardBuilderPage() {
   const [refreshInterval, setRefreshInterval] = useState(initialRefreshInterval);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [currentSheetData, setCurrentSheetData] = useState<any>(initialSheetData);
-
-  const saveDashboard = useCallback(async (isAutoSave = false) => {
-    if (!user) {
-      alert('⚠️ You must be logged in to save dashboards.');
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      if (dashboardId) {
-        await dashboardService.update(dashboardId, items, refreshInterval);
-        if (!isAutoSave) {
-          alert('✅ Dashboard updated successfully!');
-        }
-      } else {
-        const newDashboardId = await dashboardService.create(
-          user.uid,
-          googleSheetUrl,
-          items,
-          refreshInterval
-        );
-        setDashboardId(newDashboardId);
-        alert('✅ Dashboard saved successfully!');
-      }
-      setHasUnsavedChanges(false);
-    } catch (error: any) {
-      console.error('❌ Save failed:', error);
-      alert(`❌ Failed to save: ${error.message}`);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [user, dashboardId, items, refreshInterval, googleSheetUrl]);
 
   useEffect(() => {
     if (!hasUnsavedChanges || !dashboardId) return;
@@ -94,64 +58,17 @@ export function DashboardBuilderPage() {
       saveDashboard(true);
     }, 30000);
     return () => clearTimeout(autoSaveTimer);
-  }, [hasUnsavedChanges, dashboardId, saveDashboard]);
+  }, [items, hasUnsavedChanges, dashboardId]);
 
   useEffect(() => {
-    if (items.length > 0 && !hasUnsavedChanges) {
+    if (items.length > 0) {
       setHasUnsavedChanges(true);
     }
-  }, [items, hasUnsavedChanges]);
+  }, [items]);
 
   const handleRefreshData = useCallback(async () => {
-    if (!googleSheetUrl) {
-      console.warn('No Google Sheets URL to refresh from');
-      alert('⚠️ No Google Sheets URL available for refresh');
-      return;
-    }
-
     console.log('🔄 Refreshing data from Google Sheets...');
-    
-    try {
-      const response = await fetch('http://localhost:8080/api/sheets/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: googleSheetUrl })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Backend returned ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      if (result.data) {
-        setCurrentSheetData(result.data);
-        
-        const updatedItems = items.map(item => {
-          if (item.type === 'chart' && item.chartConfig && item.chartConfig._columnMetadata) {
-            const newConfig = regenerateChartConfig(
-              item.chartType || 'bar',
-              item.chartConfig,
-              result.data
-            );
-            return { ...item, chartConfig: newConfig };
-          }
-          return item;
-        });
-        
-        setItems(updatedItems);
-        
-        console.log('✅ Sheet data refreshed and charts updated!');
-        alert('✅ Data refreshed! All charts have been automatically updated with new values.');
-      } else {
-        throw new Error('No data returned from backend');
-      }
-      
-    } catch (error: any) {
-      console.error('❌ Failed to refresh data:', error);
-      alert(`❌ Refresh failed: ${error.message}\n\nMake sure:\n1. Backend is running (localhost:8080)\n2. Google Sheet is public\n3. Sheet URL is correct`);
-    }
-  }, [googleSheetUrl, items]);
+  }, [googleSheetUrl]);
 
   const { 
     isRefreshing, 
@@ -236,6 +153,38 @@ export function DashboardBuilderPage() {
       setItems(items.map(i =>
         i.id === selectedItem.id ? { ...i, chartConfig: config } : i
       ));
+    }
+  };
+
+  const saveDashboard = async (isAutoSave = false) => {
+    if (!user) {
+      alert('⚠️ You must be logged in to save dashboards.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (dashboardId) {
+        await dashboardService.update(dashboardId, items, refreshInterval);
+        if (!isAutoSave) {
+          alert('✅ Dashboard updated successfully!');
+        }
+      } else {
+        const newDashboardId = await dashboardService.create(
+          user.uid,
+          googleSheetUrl,
+          items,
+          refreshInterval
+        );
+        setDashboardId(newDashboardId);
+        alert('✅ Dashboard saved successfully!');
+      }
+      setHasUnsavedChanges(false);
+    } catch (error: any) {
+      console.error('❌ Save failed:', error);
+      alert(`❌ Failed to save: ${error.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -340,7 +289,7 @@ export function DashboardBuilderPage() {
       <ChartConfigModal
         isOpen={isChartModalOpen}
         chartType={selectedItem?.chartType || 'bar'}
-        sheetData={currentSheetData}
+        sheetData={sheetData}
         onSave={handleSaveChart}
         onClose={() => setIsChartModalOpen(false)}
       />

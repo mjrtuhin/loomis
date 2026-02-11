@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { validateNumericColumn, validateColumnExists } from '../../../utils/chartValidation';
-import { aggregateData } from '../../../utils/dataAggregation';
 
 interface HorizontalBarChartConfigProps {
   sheetData: { headers: string[]; rows: string[][] } | null;
@@ -8,107 +6,124 @@ interface HorizontalBarChartConfigProps {
 }
 
 export function HorizontalBarChartConfig({ sheetData, onPreviewChange }: HorizontalBarChartConfigProps) {
-  const [categoryColumn, setCategoryColumn] = useState('');
-  const [valueColumn, setValueColumn] = useState('');
+  const [xColumn, setXColumn] = useState('');
+  const [yColumn, setYColumn] = useState('');
   const [title, setTitle] = useState('');
 
   useEffect(() => {
-    if (!sheetData || !categoryColumn || !valueColumn) {
-      onPreviewChange(null);
-      return;
-    }
+    if (!sheetData || !xColumn || !yColumn) return;
 
-    const categoryValidation = validateColumnExists(sheetData.headers, categoryColumn);
-    if (!categoryValidation.isValid) {
-      onPreviewChange({ error: categoryValidation.error });
-      return;
-    }
+    const xIndex = sheetData.headers.indexOf(xColumn);
+    const yIndex = sheetData.headers.indexOf(yColumn);
+    if (xIndex === -1 || yIndex === -1) return;
 
-    const formattedRows = sheetData.rows.map(row => {
-      const obj: any = {};
-      sheetData.headers.forEach((header, idx) => {
-        obj[header] = row[idx];
-      });
-      return obj;
-    });
-
-    const valueValidation = validateNumericColumn(sheetData.headers, formattedRows, valueColumn);
-    if (!valueValidation.isValid) {
-      onPreviewChange({ error: valueValidation.error });
-      return;
-    }
-
-    const { categories, values } = aggregateData(formattedRows, categoryColumn, valueColumn);
+    const categories = sheetData.rows.map(row => row[xIndex]);
+    const values = sheetData.rows.map(row => parseFloat(row[yIndex]) || 0);
 
     const config = {
-      title: { text: title || 'Horizontal Bar Chart', left: 'center' },
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      xAxis: { type: 'value' },
-      yAxis: { type: 'category', data: categories },
+      title: { 
+        text: title || `${xColumn} vs ${yColumn}`, 
+        left: 'center',
+        textStyle: { fontSize: 18 }
+      },
+      tooltip: { 
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' }
+      },
+      legend: { 
+        show: true,
+        bottom: 0
+      },
+      grid: {
+        left: '15%',
+        right: '4%',
+        bottom: '10%',
+        containLabel: false
+      },
+      xAxis: {
+        type: 'value',
+        name: yColumn
+      },
+      yAxis: {
+        type: 'category',
+        data: categories,
+        name: xColumn,
+        axisLabel: {
+          interval: 0
+        }
+      },
       series: [{
+        name: yColumn,
         type: 'bar',
         data: values,
-        itemStyle: { color: '#5470c6' }
+        itemStyle: {
+          color: '#91cc75'
+        },
+        barWidth: '60%',
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 10,
+            shadowColor: 'rgba(0,0,0,0.3)'
+          }
+        }
       }],
-      _columnMetadata: {
-        category: categoryColumn,
-        value: valueColumn,
-        chartType: 'horizontalBar'
-      }
+      animation: true,
+      animationDuration: 1000,
+      animationEasing: 'cubicOut'
     };
 
     onPreviewChange(config);
-  }, [sheetData, categoryColumn, valueColumn, title]);
-
-  if (!sheetData) {
-    return <div className="text-gray-500">No data available</div>;
-  }
+  }, [xColumn, yColumn, title, sheetData, onPreviewChange]);
 
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Chart Title</label>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          placeholder="Horizontal Bar Chart"
-        />
-      </div>
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900">📊 Configure Horizontal Bar Chart</h3>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Chart Title
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={xColumn && yColumn ? `${xColumn} vs ${yColumn}` : "My Horizontal Bar Chart"}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Category Column</label>
-        <select
-          value={categoryColumn}
-          onChange={(e) => setCategoryColumn(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-        >
-          <option value="">Select column</option>
-          {sheetData.headers.map((header) => (
-            <option key={header} value={header}>{header}</option>
-          ))}
-        </select>
-      </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Categories (Y-Axis) *
+          </label>
+          <select
+            value={xColumn}
+            onChange={(e) => setXColumn(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Select column...</option>
+            {sheetData?.headers.map((header) => (
+              <option key={header} value={header}>{header}</option>
+            ))}
+          </select>
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Value Column</label>
-        <select
-          value={valueColumn}
-          onChange={(e) => setValueColumn(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-        >
-          <option value="">Select column</option>
-          {sheetData.headers.map((header) => (
-            <option key={header} value={header}>{header}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-        <p className="text-sm text-blue-800">
-          💡 <strong>Auto-aggregation:</strong> Duplicate categories are automatically summed
-        </p>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Values (X-Axis) *
+          </label>
+          <select
+            value={yColumn}
+            onChange={(e) => setYColumn(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Select column...</option>
+            {sheetData?.headers.map((header) => (
+              <option key={header} value={header}>{header}</option>
+            ))}
+          </select>
+        </div>
       </div>
     </div>
   );

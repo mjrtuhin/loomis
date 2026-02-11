@@ -59,7 +59,7 @@ export function DashboardPage() {
 
   const handleBuildDashboard = () => {
     console.log('🚀 Building dashboard with data:', data);
-    navigate('/dashboard/builder', { state: { sheetData: data, googleSheetUrl: sheetUrl } });
+    navigate('/dashboard/builder', { state: { sheetData: data } });
   };
 
   const handleReload = () => {
