@@ -13,7 +13,6 @@ import {
   Timestamp
 } from 'firebase/firestore';
 
-// EXPORTED Dashboard interface
 export interface Dashboard {
   id: string;
   userId: string;
@@ -38,6 +37,35 @@ export interface Dashboard {
   updatedAt: Timestamp;
 }
 
+function sanitizeForFirestore(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  
+  if (typeof obj === 'function') {
+    return null;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeForFirestore(item)).filter(item => item !== null);
+  }
+  
+  if (typeof obj === 'object') {
+    const sanitized: any = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        const value = sanitizeForFirestore(obj[key]);
+        if (value !== null) {
+          sanitized[key] = value;
+        }
+      }
+    }
+    return sanitized;
+  }
+  
+  return obj;
+}
+
 export const dashboardService = {
   async create(userId: string, googleSheetUrl: string, items: any[], refreshInterval: number = 60) {
     const dashboardId = `dashboard_${Date.now()}`;
@@ -48,7 +76,7 @@ export const dashboardService = {
       type: i.type,
       chartType: i.chartType || 'bar',
       position: i.position,
-      chartConfig: i.chartConfig || null
+      chartConfig: sanitizeForFirestore(i.chartConfig || null)
     }));
 
     const textBlocks = items.filter(i => i.type === 'text').map(i => ({
@@ -82,7 +110,7 @@ export const dashboardService = {
       type: i.type,
       chartType: i.chartType || 'bar',
       position: i.position,
-      chartConfig: i.chartConfig || null
+      chartConfig: sanitizeForFirestore(i.chartConfig || null)
     }));
 
     const textBlocks = items.filter(i => i.type === 'text').map(i => ({
