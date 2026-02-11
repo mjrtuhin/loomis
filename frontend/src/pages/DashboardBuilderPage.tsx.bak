@@ -7,7 +7,6 @@ import { DashboardCanvas } from '../components/dashboard/DashboardCanvas';
 import { TextBlockModal } from '../components/dashboard/TextBlockModal';
 import { ChartConfigModal } from '../components/dashboard/ChartConfigModal';
 import { dashboardService } from '../services/firestore';
-import { regenerateChartConfig } from '../utils/chartConfigRegenerator';
 
 interface CanvasItem {
   id: string;
@@ -40,8 +39,6 @@ export function DashboardBuilderPage() {
   
   const initialSheetData = location.state?.sheetData || null;
   const googleSheetUrl = location.state?.googleSheetUrl || '';
-  console.log("🔍 DashboardBuilderPage - googleSheetUrl:", googleSheetUrl);
-  console.log("🔍 DashboardBuilderPage - location.state:", location.state);
   const initialDashboardId = location.state?.dashboardId || null;
   const initialItems = location.state?.items || [];
   const initialRefreshInterval = location.state?.refreshInterval || 60;
@@ -112,7 +109,7 @@ export function DashboardBuilderPage() {
     console.log('🔄 Refreshing data from Google Sheets...');
     
     try {
-      const response = await fetch('http://localhost:8080/api/sheets/analyze', {
+      const response = await fetch('http://localhost:8080/api/sheets/load', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: googleSheetUrl })
@@ -126,23 +123,8 @@ export function DashboardBuilderPage() {
       
       if (result.data) {
         setCurrentSheetData(result.data);
-        
-        const updatedItems = items.map(item => {
-          if (item.type === 'chart' && item.chartConfig && item.chartConfig._columnMetadata) {
-            const newConfig = regenerateChartConfig(
-              item.chartType || 'bar',
-              item.chartConfig,
-              result.data
-            );
-            return { ...item, chartConfig: newConfig };
-          }
-          return item;
-        });
-        
-        setItems(updatedItems);
-        
-        console.log('✅ Sheet data refreshed and charts updated!');
-        alert('✅ Data refreshed! All charts have been automatically updated with new values.');
+        console.log('✅ Sheet data refreshed successfully!');
+        alert('✅ Data refreshed! Charts will update with new values.');
       } else {
         throw new Error('No data returned from backend');
       }
@@ -151,7 +133,7 @@ export function DashboardBuilderPage() {
       console.error('❌ Failed to refresh data:', error);
       alert(`❌ Refresh failed: ${error.message}\n\nMake sure:\n1. Backend is running (localhost:8080)\n2. Google Sheet is public\n3. Sheet URL is correct`);
     }
-  }, [googleSheetUrl, items]);
+  }, [googleSheetUrl]);
 
   const { 
     isRefreshing, 

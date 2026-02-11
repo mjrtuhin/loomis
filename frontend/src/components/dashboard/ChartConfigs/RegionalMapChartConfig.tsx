@@ -1,32 +1,27 @@
 import { useState, useEffect } from 'react';
 import { validateNumericColumn, validateColumnExists } from '../../../utils/chartValidation';
+import { aggregateData } from '../../../utils/dataAggregation';
 
-interface SankeyChartConfigProps {
+interface RegionalMapChartConfigProps {
   sheetData: { headers: string[]; rows: string[][] } | null;
   onPreviewChange: (config: any) => void;
 }
 
-export function SankeyChartConfig({ sheetData, onPreviewChange }: SankeyChartConfigProps) {
-  const [sourceColumn, setSourceColumn] = useState('');
-  const [targetColumn, setTargetColumn] = useState('');
+export function RegionalMapChartConfig({ sheetData, onPreviewChange }: RegionalMapChartConfigProps) {
+  const [regionColumn, setRegionColumn] = useState('');
   const [valueColumn, setValueColumn] = useState('');
+  const [mapType, setMapType] = useState('world');
   const [title, setTitle] = useState('');
 
   useEffect(() => {
-    if (!sheetData || !sourceColumn || !targetColumn || !valueColumn) {
+    if (!sheetData || !regionColumn || !valueColumn) {
       onPreviewChange(null);
       return;
     }
 
-    const sourceValidation = validateColumnExists(sheetData.headers, sourceColumn);
-    if (!sourceValidation.isValid) {
-      onPreviewChange({ error: sourceValidation.error });
-      return;
-    }
-
-    const targetValidation = validateColumnExists(sheetData.headers, targetColumn);
-    if (!targetValidation.isValid) {
-      onPreviewChange({ error: targetValidation.error });
+    const regionValidation = validateColumnExists(sheetData.headers, regionColumn);
+    if (!regionValidation.isValid) {
+      onPreviewChange({ error: regionValidation.error });
       return;
     }
 
@@ -44,43 +39,45 @@ export function SankeyChartConfig({ sheetData, onPreviewChange }: SankeyChartCon
       return;
     }
 
-    const nodes = new Set<string>();
-    const links: any[] = [];
+    const { categories, values } = aggregateData(formattedRows, regionColumn, valueColumn);
 
-    formattedRows.forEach(row => {
-      const source = String(row[sourceColumn]);
-      const target = String(row[targetColumn]);
-      const value = parseFloat(row[valueColumn]);
-
-      if (source && target && !isNaN(value)) {
-        nodes.add(source);
-        nodes.add(target);
-        links.push({ source, target, value });
-      }
-    });
-
-    const nodesArray = Array.from(nodes).map(name => ({ name }));
+    const mapData = categories.map((name, idx) => ({
+      name,
+      value: values[idx]
+    }));
 
     const config = {
-      title: { text: title || 'Sankey Diagram', left: 'center' },
+      title: { text: title || 'Regional Map', left: 'center' },
       tooltip: { trigger: 'item' },
+      visualMap: {
+        min: 0,
+        max: Math.max(...values),
+        text: ['High', 'Low'],
+        realtime: false,
+        calculable: true,
+        inRange: {
+          color: ['#e0f3f8', '#abd9e9', '#74add1', '#4575b4', '#313695']
+        }
+      },
       series: [{
-        type: 'sankey',
-        data: nodesArray,
-        links: links,
-        emphasis: { focus: 'adjacency' },
-        lineStyle: { color: 'gradient', curveness: 0.5 }
+        type: 'map',
+        map: mapType,
+        roam: true,
+        data: mapData,
+        emphasis: {
+          label: { show: true }
+        }
       }],
       _columnMetadata: {
-        source: sourceColumn,
-        target: targetColumn,
+        region: regionColumn,
         value: valueColumn,
-        chartType: 'sankey'
+        mapType: mapType,
+        chartType: 'regionalMap'
       }
     };
 
     onPreviewChange(config);
-  }, [sheetData, sourceColumn, targetColumn, valueColumn, title]);
+  }, [sheetData, regionColumn, valueColumn, mapType, title]);
 
   if (!sheetData) {
     return <div className="text-gray-500">No data available</div>;
@@ -95,15 +92,31 @@ export function SankeyChartConfig({ sheetData, onPreviewChange }: SankeyChartCon
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          placeholder="Sankey Diagram"
+          placeholder="Regional Map"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Source Column</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Map Type</label>
         <select
-          value={sourceColumn}
-          onChange={(e) => setSourceColumn(e.target.value)}
+          value={mapType}
+          onChange={(e) => setMapType(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        >
+          <option value="world">World</option>
+          <option value="USA">USA</option>
+          <option value="china">China</option>
+          <option value="india">India</option>
+          <option value="UK">United Kingdom</option>
+          <option value="germany">Germany</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Region/Country Column</label>
+        <select
+          value={regionColumn}
+          onChange={(e) => setRegionColumn(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md"
         >
           <option value="">Select column</option>
@@ -114,21 +127,7 @@ export function SankeyChartConfig({ sheetData, onPreviewChange }: SankeyChartCon
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Target Column</label>
-        <select
-          value={targetColumn}
-          onChange={(e) => setTargetColumn(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-        >
-          <option value="">Select column</option>
-          {sheetData.headers.map((header) => (
-            <option key={header} value={header}>{header}</option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Flow Value Column</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Value Column</label>
         <select
           value={valueColumn}
           onChange={(e) => setValueColumn(e.target.value)}
@@ -143,7 +142,7 @@ export function SankeyChartConfig({ sheetData, onPreviewChange }: SankeyChartCon
 
       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
         <p className="text-sm text-blue-800">
-          💡 Shows flow between nodes: Source → Target with Value
+          💡 <strong>Auto-aggregation:</strong> Duplicate regions are automatically summed. Color-coded choropleth map.
         </p>
       </div>
     </div>

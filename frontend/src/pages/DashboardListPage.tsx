@@ -36,8 +36,10 @@ export function DashboardListPage() {
   const handleOpenDashboard = async (dashboard: Dashboard) => {
     setOpeningDashboard(dashboard.id);
     
+    console.log('🔍 Opening dashboard with URL:', dashboard.googleSheetUrl);
+    
     try {
-      const response = await fetch('http://localhost:8080/api/sheets/load', {
+      const response = await fetch('http://localhost:8080/api/sheets/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: dashboard.googleSheetUrl })
@@ -54,14 +56,18 @@ export function DashboardListPage() {
         ...dashboard.layout.textBlocks
       ];
 
+      const navigationState = {
+        dashboardId: dashboard.id,
+        googleSheetUrl: dashboard.googleSheetUrl,
+        items: items,
+        refreshInterval: dashboard.refreshInterval,
+        sheetData: result.data
+      };
+
+      console.log('🔍 Navigating with state:', navigationState);
+
       navigate('/dashboard/builder', {
-        state: {
-          dashboardId: dashboard.id,
-          googleSheetUrl: dashboard.googleSheetUrl,
-          items: items,
-          refreshInterval: dashboard.refreshInterval,
-          sheetData: result.data
-        }
+        state: navigationState
       });
     } catch (error: any) {
       console.error('Failed to open dashboard:', error);

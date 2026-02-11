@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ChartRenderer } from '../ChartRenderer';
+import { validateNumericColumn, validateColumnExists } from '../../../utils/chartValidation';
+import { aggregateData } from '../../../utils/dataAggregation';
 
 interface PieChartConfigProps {
   sheetData: { headers: string[]; rows: string[][] } | null;
@@ -12,124 +13,113 @@ export function PieChartConfig({ sheetData, onPreviewChange }: PieChartConfigPro
   const [title, setTitle] = useState('');
 
   useEffect(() => {
-    if (!sheetData || !labelColumn || !valueColumn) return;
+    if (!sheetData || !labelColumn || !valueColumn) {
+      onPreviewChange(null);
+      return;
+    }
 
-    const labelIndex = sheetData.headers.indexOf(labelColumn);
-    const valueIndex = sheetData.headers.indexOf(valueColumn);
-    if (labelIndex === -1 || valueIndex === -1) return;
+    const labelValidation = validateColumnExists(sheetData.headers, labelColumn);
+    if (!labelValidation.isValid) {
+      onPreviewChange({ error: labelValidation.error });
+      return;
+    }
 
-    const labels = sheetData.rows.map(row => row[labelIndex]);
-    const values = sheetData.rows.map(row => parseFloat(row[valueIndex]) || 0);
-    
-    const pieData = labels.map((label, i) => ({ 
-      name: label, 
-      value: values[i] 
+    const formattedRows = sheetData.rows.map(row => {
+      const obj: any = {};
+      sheetData.headers.forEach((header, idx) => {
+        obj[header] = row[idx];
+      });
+      return obj;
+    });
+
+    const valueValidation = validateNumericColumn(sheetData.headers, formattedRows, valueColumn);
+    if (!valueValidation.isValid) {
+      onPreviewChange({ error: valueValidation.error });
+      return;
+    }
+
+    const { categories, values } = aggregateData(formattedRows, labelColumn, valueColumn);
+
+    const pieData = categories.map((name, idx) => ({
+      name,
+      value: values[idx]
     }));
 
     const config = {
-      title: { 
-        text: title || `${labelColumn} Distribution`, 
-        left: 'center',
-        textStyle: { fontSize: 18 }
-      },
-      tooltip: { 
-        trigger: 'item',
-        formatter: '{a} <br/>{b}: {c} ({d}%)'
-      },
-      legend: {
-        orient: 'vertical',
-        left: 'left',
-        top: 'middle',
-        selectedMode: true
-      },
+      title: { text: title || 'Pie Chart', left: 'center' },
+      tooltip: { trigger: 'item' },
+      legend: { orient: 'vertical', left: 'left' },
       series: [{
-        name: valueColumn,
         type: 'pie',
-        radius: ['40%', '70%'],
-        center: ['60%', '50%'],
+        radius: '50%',
         data: pieData,
         emphasis: {
           itemStyle: {
             shadowBlur: 10,
             shadowOffsetX: 0,
             shadowColor: 'rgba(0, 0, 0, 0.5)'
-          },
-          label: {
-            show: true,
-            fontSize: 16,
-            fontWeight: 'bold'
           }
-        },
-        label: {
-          formatter: '{b}: {d}%'
-        },
-        labelLine: {
-          show: true
-        },
-        itemStyle: {
-          borderRadius: 8,
-          borderColor: '#fff',
-          borderWidth: 2
         }
       }],
-      animation: true,
-      animationDuration: 1000,
-      animationEasing: 'cubicOut',
-      animationType: 'expansion'
+      _columnMetadata: {
+        label: labelColumn,
+        value: valueColumn,
+        chartType: 'pie'
+      }
     };
 
     onPreviewChange(config);
-  }, [labelColumn, valueColumn, title, sheetData, onPreviewChange]);
+  }, [sheetData, labelColumn, valueColumn, title]);
+
+  if (!sheetData) {
+    return <div className="text-gray-500">No data available</div>;
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">🥧 Configure Pie Chart</h3>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Chart Title
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={labelColumn ? `${labelColumn} Distribution` : "My Pie Chart"}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Chart Title</label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          placeholder="Pie Chart"
+        />
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Labels (Categories) *
-          </label>
-          <select
-            value={labelColumn}
-            onChange={(e) => setLabelColumn(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Select column...</option>
-            {sheetData?.headers.map((header) => (
-              <option key={header} value={header}>{header}</option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Label Column</label>
+        <select
+          value={labelColumn}
+          onChange={(e) => setLabelColumn(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        >
+          <option value="">Select column</option>
+          {sheetData.headers.map((header) => (
+            <option key={header} value={header}>{header}</option>
+          ))}
+        </select>
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Values (Numbers) *
-          </label>
-          <select
-            value={valueColumn}
-            onChange={(e) => setValueColumn(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Select column...</option>
-            {sheetData?.headers.map((header) => (
-              <option key={header} value={header}>{header}</option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Value Column</label>
+        <select
+          value={valueColumn}
+          onChange={(e) => setValueColumn(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        >
+          <option value="">Select column</option>
+          {sheetData.headers.map((header) => (
+            <option key={header} value={header}>{header}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <p className="text-sm text-blue-800">
+          💡 <strong>Auto-aggregation:</strong> Duplicate labels are automatically summed
+        </p>
       </div>
     </div>
   );

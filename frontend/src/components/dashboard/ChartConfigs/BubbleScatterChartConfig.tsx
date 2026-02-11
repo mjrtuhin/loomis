@@ -1,19 +1,21 @@
 import { useState, useEffect } from 'react';
 import { validateNumericColumn, validateColumnExists } from '../../../utils/chartValidation';
+import { aggregateData } from '../../../utils/dataAggregation';
 
-interface Line3DChartConfigProps {
+interface BubbleScatterChartConfigProps {
   sheetData: { headers: string[]; rows: string[][] } | null;
   onPreviewChange: (config: any) => void;
 }
 
-export function Line3DChartConfig({ sheetData, onPreviewChange }: Line3DChartConfigProps) {
+export function BubbleScatterChartConfig({ sheetData, onPreviewChange }: BubbleScatterChartConfigProps) {
   const [xColumn, setXColumn] = useState('');
   const [yColumn, setYColumn] = useState('');
-  const [zColumn, setZColumn] = useState('');
+  const [sizeColumn, setSizeColumn] = useState('');
+  const [categoryColumn, setCategoryColumn] = useState('');
   const [title, setTitle] = useState('');
 
   useEffect(() => {
-    if (!sheetData || !xColumn || !yColumn || !zColumn) {
+    if (!sheetData || !xColumn || !yColumn || !sizeColumn) {
       onPreviewChange(null);
       return;
     }
@@ -38,44 +40,48 @@ export function Line3DChartConfig({ sheetData, onPreviewChange }: Line3DChartCon
       return;
     }
 
-    const zValidation = validateNumericColumn(sheetData.headers, formattedRows, zColumn);
-    if (!zValidation.isValid) {
-      onPreviewChange({ error: `Z: ${zValidation.error}` });
+    const sizeValidation = validateNumericColumn(sheetData.headers, formattedRows, sizeColumn);
+    if (!sizeValidation.isValid) {
+      onPreviewChange({ error: `Size: ${sizeValidation.error}` });
       return;
     }
 
-    const lineData = formattedRows.map(row => [
+    if (categoryColumn) {
+      const categoryValidation = validateColumnExists(sheetData.headers, categoryColumn);
+      if (!categoryValidation.isValid) {
+        onPreviewChange({ error: categoryValidation.error });
+        return;
+      }
+    }
+
+    const bubbleData = formattedRows.map(row => [
       parseFloat(row[xColumn]),
       parseFloat(row[yColumn]),
-      parseFloat(row[zColumn])
+      parseFloat(row[sizeColumn]),
+      categoryColumn ? String(row[categoryColumn]) : 'Data'
     ]);
 
     const config = {
-      title: { text: title || '3D Line Chart', left: 'center' },
-      tooltip: {},
-      xAxis3D: { type: 'value' },
-      yAxis3D: { type: 'value' },
-      zAxis3D: { type: 'value' },
-      grid3D: {
-        viewControl: {
-          projection: 'perspective'
-        }
-      },
+      title: { text: title || 'Bubble Scatter Chart', left: 'center' },
+      tooltip: { trigger: 'item' },
+      xAxis: { type: 'value' },
+      yAxis: { type: 'value' },
       series: [{
-        type: 'line3D',
-        data: lineData,
-        lineStyle: { width: 4 }
+        type: 'scatter',
+        data: bubbleData,
+        symbolSize: (val: any) => Math.sqrt(val[2]) * 5
       }],
       _columnMetadata: {
         x: xColumn,
         y: yColumn,
-        z: zColumn,
-        chartType: 'line3D'
+        size: sizeColumn,
+        category: categoryColumn || null,
+        chartType: 'bubbleScatter'
       }
     };
 
     onPreviewChange(config);
-  }, [sheetData, xColumn, yColumn, zColumn, title]);
+  }, [sheetData, xColumn, yColumn, sizeColumn, categoryColumn, title]);
 
   if (!sheetData) {
     return <div className="text-gray-500">No data available</div>;
@@ -90,7 +96,7 @@ export function Line3DChartConfig({ sheetData, onPreviewChange }: Line3DChartCon
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          placeholder="3D Line Chart"
+          placeholder="Bubble Scatter Chart"
         />
       </div>
 
@@ -123,10 +129,10 @@ export function Line3DChartConfig({ sheetData, onPreviewChange }: Line3DChartCon
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Z-axis Column</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Bubble Size Column</label>
         <select
-          value={zColumn}
-          onChange={(e) => setZColumn(e.target.value)}
+          value={sizeColumn}
+          onChange={(e) => setSizeColumn(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md"
         >
           <option value="">Select column</option>
@@ -136,9 +142,23 @@ export function Line3DChartConfig({ sheetData, onPreviewChange }: Line3DChartCon
         </select>
       </div>
 
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Category Column (optional)</label>
+        <select
+          value={categoryColumn}
+          onChange={(e) => setCategoryColumn(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        >
+          <option value="">None</option>
+          {sheetData.headers.map((header) => (
+            <option key={header} value={header}>{header}</option>
+          ))}
+        </select>
+      </div>
+
       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
         <p className="text-sm text-blue-800">
-          💡 3D line visualization with X, Y, Z coordinates
+          💡 Requires 3 numeric columns: X, Y, and bubble size
         </p>
       </div>
     </div>

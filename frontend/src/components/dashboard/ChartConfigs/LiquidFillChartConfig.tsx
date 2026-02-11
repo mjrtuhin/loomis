@@ -1,26 +1,19 @@
 import { useState, useEffect } from 'react';
-import { validateNumericColumn, validateColumnExists } from '../../../utils/chartValidation';
+import { validateNumericColumn } from '../../../utils/chartValidation';
 
-interface GaugeChartConfigProps {
+interface LiquidFillChartConfigProps {
   sheetData: { headers: string[]; rows: string[][] } | null;
   onPreviewChange: (config: any) => void;
 }
 
-export function GaugeChartConfig({ sheetData, onPreviewChange }: GaugeChartConfigProps) {
-  const [labelColumn, setLabelColumn] = useState('');
+export function LiquidFillChartConfig({ sheetData, onPreviewChange }: LiquidFillChartConfigProps) {
   const [valueColumn, setValueColumn] = useState('');
   const [maxValue, setMaxValue] = useState('100');
   const [title, setTitle] = useState('');
 
   useEffect(() => {
-    if (!sheetData || !labelColumn || !valueColumn) {
+    if (!sheetData || !valueColumn) {
       onPreviewChange(null);
-      return;
-    }
-
-    const labelValidation = validateColumnExists(sheetData.headers, labelColumn);
-    if (!labelValidation.isValid) {
-      onPreviewChange({ error: labelValidation.error });
       return;
     }
 
@@ -39,38 +32,30 @@ export function GaugeChartConfig({ sheetData, onPreviewChange }: GaugeChartConfi
     }
 
     const firstRow = formattedRows[0];
-    const gaugeValue = parseFloat(firstRow[valueColumn]) || 0;
-    const gaugeLabel = String(firstRow[labelColumn]) || 'Value';
+    const liquidValue = parseFloat(firstRow[valueColumn]) || 0;
+    const max = parseFloat(maxValue) || 100;
+    const percentage = (liquidValue / max);
 
     const config = {
-      title: { text: title || 'Gauge Chart', left: 'center' },
-      tooltip: { formatter: '{a} <br/>{b} : {c}%' },
+      title: { text: title || 'Liquid Fill Chart', left: 'center' },
       series: [{
-        type: 'gauge',
-        detail: { formatter: '{value}' },
-        data: [{ value: gaugeValue, name: gaugeLabel }],
-        max: parseFloat(maxValue) || 100,
-        axisLine: {
-          lineStyle: {
-            width: 30,
-            color: [
-              [0.3, '#67e0e3'],
-              [0.7, '#37a2da'],
-              [1, '#fd666d']
-            ]
-          }
+        type: 'liquidFill',
+        data: [percentage],
+        outline: { show: true },
+        label: {
+          formatter: `{c}%`,
+          fontSize: 30
         }
       }],
       _columnMetadata: {
-        label: labelColumn,
         value: valueColumn,
         max: maxValue,
-        chartType: 'gauge'
+        chartType: 'liquidFill'
       }
     };
 
     onPreviewChange(config);
-  }, [sheetData, labelColumn, valueColumn, maxValue, title]);
+  }, [sheetData, valueColumn, maxValue, title]);
 
   if (!sheetData) {
     return <div className="text-gray-500">No data available</div>;
@@ -85,22 +70,8 @@ export function GaugeChartConfig({ sheetData, onPreviewChange }: GaugeChartConfi
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          placeholder="Gauge Chart"
+          placeholder="Liquid Fill Chart"
         />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Label Column</label>
-        <select
-          value={labelColumn}
-          onChange={(e) => setLabelColumn(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-        >
-          <option value="">Select column</option>
-          {sheetData.headers.map((header) => (
-            <option key={header} value={header}>{header}</option>
-          ))}
-        </select>
       </div>
 
       <div>
@@ -130,7 +101,7 @@ export function GaugeChartConfig({ sheetData, onPreviewChange }: GaugeChartConfi
 
       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
         <p className="text-sm text-blue-800">
-          💡 Displays the first row value as a gauge meter
+          💡 Displays percentage as animated liquid fill
         </p>
       </div>
     </div>

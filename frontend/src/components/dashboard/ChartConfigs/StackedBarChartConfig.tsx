@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { validateNumericColumn, validateColumnExists } from '../../../utils/chartValidation';
 
 interface StackedBarChartConfigProps {
   sheetData: { headers: string[]; rows: string[][] } | null;
@@ -7,158 +8,143 @@ interface StackedBarChartConfigProps {
 
 export function StackedBarChartConfig({ sheetData, onPreviewChange }: StackedBarChartConfigProps) {
   const [categoryColumn, setCategoryColumn] = useState('');
-  const [selectedValueColumns, setSelectedValueColumns] = useState<string[]>([]);
+  const [valueColumns, setValueColumns] = useState<string[]>([]);
   const [title, setTitle] = useState('');
 
-  const toggleColumn = (column: string) => {
-    setSelectedValueColumns(prev => 
-      prev.includes(column) 
+  const toggleValueColumn = (column: string) => {
+    setValueColumns(prev =>
+      prev.includes(column)
         ? prev.filter(c => c !== column)
         : [...prev, column]
     );
   };
 
   useEffect(() => {
-    if (!sheetData || !categoryColumn || selectedValueColumns.length === 0) return;
+    if (!sheetData || !categoryColumn || valueColumns.length === 0) {
+      onPreviewChange(null);
+      return;
+    }
 
-    const categoryIndex = sheetData.headers.indexOf(categoryColumn);
-    if (categoryIndex === -1) return;
+    const categoryValidation = validateColumnExists(sheetData.headers, categoryColumn);
+    if (!categoryValidation.isValid) {
+      onPreviewChange({ error: categoryValidation.error });
+      return;
+    }
 
-    const categories = sheetData.rows.map(row => row[categoryIndex]);
+    const formattedRows = sheetData.rows.map(row => {
+      const obj: any = {};
+      sheetData.headers.forEach((header, idx) => {
+        obj[header] = row[idx];
+      });
+      return obj;
+    });
 
-    const series = selectedValueColumns.map((col, idx) => {
-      const colIndex = sheetData.headers.indexOf(col);
-      if (colIndex === -1) return null;
+    for (const col of valueColumns) {
+      const validation = validateNumericColumn(sheetData.headers, formattedRows, col);
+      if (!validation.isValid) {
+        onPreviewChange({ error: `${col}: ${validation.error}` });
+        return;
+      }
+    }
 
-      const data = sheetData.rows.map(row => parseFloat(row[colIndex]) || 0);
+    const categorySet = new Set<string>();
+    const categoryData: { [key: string]: { [key: string]: number } } = {};
 
-      return {
-        name: col,
-        type: 'bar',
-        stack: 'total',
-        data: data,
-        emphasis: {
-          focus: 'series'
-        },
-        label: {
-          show: false
+    formattedRows.forEach(row => {
+      const category = String(row[categoryColumn] || 'Unknown');
+      categorySet.add(category);
+
+      if (!categoryData[category]) {
+        categoryData[category] = {};
+      }
+
+      valueColumns.forEach(col => {
+        const value = parseFloat(row[col]);
+        if (!isNaN(value)) {
+          categoryData[category][col] = (categoryData[category][col] || 0) + value;
         }
-      };
-    }).filter(Boolean);
+      });
+    });
+
+    const categories = Array.from(categorySet);
+    const series = valueColumns.map(col => ({
+      name: col,
+      type: 'bar',
+      stack: 'total',
+      data: categories.map(cat => categoryData[cat]?.[col] || 0)
+    }));
 
     const config = {
-      title: { 
-        text: title || 'Stacked Bar Chart', 
-        left: 'center',
-        textStyle: { fontSize: 18 }
-      },
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: {
-          type: 'shadow'
-        },
-        formatter: (params: any) => {
-          let result = `${params[0].axisValue}<br/>`;
-          let total = 0;
-          params.forEach((item: any) => {
-            total += item.value;
-            result += `${item.marker} ${item.seriesName}: ${item.value}<br/>`;
-          });
-          result += `<strong>Total: ${total}</strong>`;
-          return result;
-        }
-      },
-      legend: {
-        data: selectedValueColumns,
-        bottom: 0,
-        type: 'scroll'
-      },
-      grid: {
-        left: '3%',
-        right: '4%',
-        bottom: '15%',
-        containLabel: true
-      },
-      xAxis: {
-        type: 'category',
-        data: categories,
-        axisLabel: {
-          rotate: 45
-        }
-      },
-      yAxis: {
-        type: 'value'
-      },
+      title: { text: title || 'Stacked Bar Chart', left: 'center' },
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      legend: { data: valueColumns },
+      xAxis: { type: 'category', data: categories },
+      yAxis: { type: 'value' },
       series: series,
-      animation: true,
-      animationDuration: 1000,
-      animationEasing: 'cubicOut'
+      _columnMetadata: {
+        category: categoryColumn,
+        values: valueColumns,
+        chartType: 'stackedBar'
+      }
     };
 
     onPreviewChange(config);
-  }, [categoryColumn, selectedValueColumns, title, sheetData, onPreviewChange]);
+  }, [sheetData, categoryColumn, valueColumns, title]);
+
+  if (!sheetData) {
+    return <div className="text-gray-500">No data available</div>;
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">📊 Configure Stacked Bar Chart</h3>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Chart Title
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Stacked Bar Chart"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Chart Title</label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          placeholder="Stacked Bar Chart"
+        />
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Category Column (X-Axis) *
-          </label>
-          <select
-            value={categoryColumn}
-            onChange={(e) => setCategoryColumn(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Select column...</option>
-            {sheetData?.headers.map((header) => (
-              <option key={header} value={header}>{header}</option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Category Column</label>
+        <select
+          value={categoryColumn}
+          onChange={(e) => setCategoryColumn(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        >
+          <option value="">Select column</option>
+          {sheetData.headers.map((header) => (
+            <option key={header} value={header}>{header}</option>
+          ))}
+        </select>
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Value Columns (Stack Segments) *
-          </label>
-          <div className="border border-gray-300 rounded-md p-3 space-y-2 max-h-60 overflow-y-auto">
-            {sheetData?.headers.map((header) => (
-              <label key={header} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                <input
-                  type="checkbox"
-                  checked={selectedValueColumns.includes(header)}
-                  onChange={() => toggleColumn(header)}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">{header}</span>
-              </label>
-            ))}
-          </div>
-          <p className="text-xs text-gray-500 mt-1">
-            {selectedValueColumns.length} columns selected
-          </p>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Value Columns (select 2+)
+        </label>
+        <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-3">
+          {sheetData.headers.filter(h => h !== categoryColumn).map((header) => (
+            <div key={header} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={valueColumns.includes(header)}
+                onChange={() => toggleValueColumn(header)}
+                className="rounded"
+              />
+              <label className="text-sm text-gray-700">{header}</label>
+            </div>
+          ))}
         </div>
+      </div>
 
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <p className="text-sm text-blue-800">
-            💡 Perfect for part-to-whole comparison! Each bar shows total with color-coded segments. Hover shows breakdown + total!
-          </p>
-        </div>
+      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <p className="text-sm text-blue-800">
+          💡 <strong>Auto-aggregation:</strong> Duplicate categories are automatically summed
+        </p>
       </div>
     </div>
   );

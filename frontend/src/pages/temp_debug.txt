@@ -1,0 +1,6 @@
+Add this after line 41 (after googleSheetUrl is defined):
+
+  useEffect(() => {
+    console.log('🔍 DEBUG - googleSheetUrl:', googleSheetUrl);
+    console.log('🔍 DEBUG - location.state:', location.state);
+  }, [googleSheetUrl, location.state]);

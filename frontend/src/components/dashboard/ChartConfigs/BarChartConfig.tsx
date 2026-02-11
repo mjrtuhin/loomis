@@ -49,7 +49,12 @@ export function BarChartConfig({ sheetData, onPreviewChange }: BarChartConfigPro
         type: 'bar',
         data: values,
         itemStyle: { color: '#5470c6' }
-      }]
+      }],
+      _columnMetadata: {
+        x: xColumn,
+        y: yColumn,
+        chartType: 'bar'
+      }
     };
 
     onPreviewChange(config);

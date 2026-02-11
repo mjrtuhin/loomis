@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { validateNumericColumn, validateColumnExists } from '../../../utils/chartValidation';
 
 interface EffectScatterChartConfigProps {
   sheetData: { headers: string[]; rows: string[][] } | null;
@@ -8,136 +9,135 @@ interface EffectScatterChartConfigProps {
 export function EffectScatterChartConfig({ sheetData, onPreviewChange }: EffectScatterChartConfigProps) {
   const [xColumn, setXColumn] = useState('');
   const [yColumn, setYColumn] = useState('');
+  const [sizeColumn, setSizeColumn] = useState('');
   const [title, setTitle] = useState('');
 
   useEffect(() => {
-    if (!sheetData || !xColumn || !yColumn) return;
+    if (!sheetData || !xColumn || !yColumn) {
+      onPreviewChange(null);
+      return;
+    }
 
-    const xIndex = sheetData.headers.indexOf(xColumn);
-    const yIndex = sheetData.headers.indexOf(yColumn);
-    if (xIndex === -1 || yIndex === -1) return;
+    const xValidation = validateColumnExists(sheetData.headers, xColumn);
+    if (!xValidation.isValid) {
+      onPreviewChange({ error: xValidation.error });
+      return;
+    }
 
-    const data = sheetData.rows.map(row => [
-      parseFloat(row[xIndex]) || 0,
-      parseFloat(row[yIndex]) || 0
-    ]);
+    const formattedRows = sheetData.rows.map(row => {
+      const obj: any = {};
+      sheetData.headers.forEach((header, idx) => {
+        obj[header] = row[idx];
+      });
+      return obj;
+    });
+
+    const yValidation = validateNumericColumn(sheetData.headers, formattedRows, yColumn);
+    if (!yValidation.isValid) {
+      onPreviewChange({ error: yValidation.error });
+      return;
+    }
+
+    if (sizeColumn) {
+      const sizeValidation = validateNumericColumn(sheetData.headers, formattedRows, sizeColumn);
+      if (!sizeValidation.isValid) {
+        onPreviewChange({ error: `Size: ${sizeValidation.error}` });
+        return;
+      }
+    }
+
+    const scatterData = formattedRows.map(row => {
+      const x = String(row[xColumn]);
+      const y = parseFloat(row[yColumn]);
+      const size = sizeColumn ? parseFloat(row[sizeColumn]) : 10;
+      return [x, y, size];
+    });
 
     const config = {
-      title: { 
-        text: title || `${xColumn} vs ${yColumn}`, 
-        left: 'center',
-        textStyle: { fontSize: 18 }
-      },
-      tooltip: {
-        trigger: 'item',
-        formatter: (params: any) => {
-          return `${xColumn}: ${params.value[0]}<br/>${yColumn}: ${params.value[1]}`;
-        }
-      },
-      grid: {
-        left: '10%',
-        right: '10%',
-        bottom: '10%',
-        containLabel: true
-      },
-      xAxis: {
-        type: 'value',
-        name: xColumn,
-        splitLine: {
-          show: true,
-          lineStyle: {
-            type: 'dashed'
-          }
-        }
-      },
-      yAxis: {
-        type: 'value',
-        name: yColumn,
-        splitLine: {
-          show: true,
-          lineStyle: {
-            type: 'dashed'
-          }
-        }
-      },
+      title: { text: title || 'Effect Scatter Chart', left: 'center' },
+      tooltip: { trigger: 'item' },
+      xAxis: { type: 'category' },
+      yAxis: { type: 'value' },
       series: [{
         type: 'effectScatter',
-        data: data,
-        symbolSize: 15,
-        itemStyle: {
-          color: '#ee6666'
-        },
-        emphasis: {
-          scale: true,
-          focus: 'series',
-          itemStyle: {
-            shadowBlur: 10,
-            shadowColor: 'rgba(255,0,0,0.5)'
-          }
-        },
-        rippleEffect: {
-          brushType: 'stroke',
-          scale: 3,
-          period: 4
-        }
+        data: scatterData,
+        symbolSize: (val: any) => val[2] || 10,
+        rippleEffect: { scale: 3, brushType: 'stroke' }
       }],
-      animation: true,
-      animationDuration: 1000,
-      animationEasing: 'cubicOut'
+      _columnMetadata: {
+        x: xColumn,
+        y: yColumn,
+        size: sizeColumn || null,
+        chartType: 'effectScatter'
+      }
     };
 
     onPreviewChange(config);
-  }, [xColumn, yColumn, title, sheetData, onPreviewChange]);
+  }, [sheetData, xColumn, yColumn, sizeColumn, title]);
+
+  if (!sheetData) {
+    return <div className="text-gray-500">No data available</div>;
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">✨ Configure Effect Scatter (Blinking Dots)</h3>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Chart Title
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={xColumn && yColumn ? `${xColumn} vs ${yColumn}` : "My Effect Scatter"}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Chart Title</label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          placeholder="Effect Scatter Chart"
+        />
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            X-Axis (Numeric) *
-          </label>
-          <select
-            value={xColumn}
-            onChange={(e) => setXColumn(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Select column...</option>
-            {sheetData?.headers.map((header) => (
-              <option key={header} value={header}>{header}</option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">X-axis Column</label>
+        <select
+          value={xColumn}
+          onChange={(e) => setXColumn(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        >
+          <option value="">Select column</option>
+          {sheetData.headers.map((header) => (
+            <option key={header} value={header}>{header}</option>
+          ))}
+        </select>
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Y-Axis (Numeric) *
-          </label>
-          <select
-            value={yColumn}
-            onChange={(e) => setYColumn(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Select column...</option>
-            {sheetData?.headers.map((header) => (
-              <option key={header} value={header}>{header}</option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Y-axis Column</label>
+        <select
+          value={yColumn}
+          onChange={(e) => setYColumn(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        >
+          <option value="">Select column</option>
+          {sheetData.headers.map((header) => (
+            <option key={header} value={header}>{header}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Size Column (optional)</label>
+        <select
+          value={sizeColumn}
+          onChange={(e) => setSizeColumn(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        >
+          <option value="">None</option>
+          {sheetData.headers.map((header) => (
+            <option key={header} value={header}>{header}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <p className="text-sm text-blue-800">
+          💡 Scatter plot with ripple animation effect
+        </p>
       </div>
     </div>
   );

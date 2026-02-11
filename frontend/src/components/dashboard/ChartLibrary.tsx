@@ -21,22 +21,22 @@ const CHART_CATEGORIES = {
     { type: 'heatmap', name: 'Heatmap', icon: '🔥', description: 'Color-coded matrix' },
     { type: 'candlestick', name: 'Candlestick', icon: '🕯️', description: 'OHLC financial data' },
     { type: 'radar', name: 'Radar Chart', icon: '🎯', description: 'Multi-dimensional comparison' },
-    { type: 'parallel', name: 'Parallel Coordinates', icon: '📊', description: 'Multi-variable analysis' },
+    { type: 'parallelCoordinates', name: 'Parallel Coordinates', icon: '📊', description: 'Multi-variable analysis' },
   ],
   'Advanced Scatter': [
     { type: 'effectScatter', name: 'Effect Scatter', icon: '✨', description: 'Animated scatter points' },
-    { type: 'bubble', name: 'Bubble Chart', icon: '🫧', description: '3-variable scatter' },
+    { type: 'bubbleScatter', name: 'Bubble Chart', icon: '🫧', description: '3-variable scatter' },
   ],
   'Specialized': [
     { type: 'funnel', name: 'Funnel Chart', icon: '🔻', description: 'Conversion stages' },
     { type: 'gauge', name: 'Gauge Chart', icon: '⏱️', description: 'Progress indicator' },
-    { type: 'liquid', name: 'Liquid Fill', icon: '💧', description: 'Percentage fill' },
-    { type: 'wordcloud', name: 'Word Cloud', icon: '☁️', description: 'Word frequency' },
+    { type: 'liquidFill', name: 'Liquid Fill', icon: '💧', description: 'Percentage fill' },
+    { type: 'wordCloud', name: 'Word Cloud', icon: '☁️', description: 'Word frequency' },
     { type: 'polarBar', name: 'Polar Bar/Rose', icon: '🌹', description: 'Circular bar chart' },
   ],
   'Flow & Hierarchy': [
     { type: 'sankey', name: 'Sankey Diagram', icon: '🔄', description: 'Flow visualization' },
-    { type: 'graph', name: 'Network Graph', icon: '🕸️', description: 'Node relationships' },
+    { type: 'networkGraph', name: 'Network Graph', icon: '🕸️', description: 'Node relationships' },
     { type: 'treemap', name: 'Treemap', icon: '📦', description: 'Hierarchical rectangles' },
     { type: 'themeRiver', name: 'ThemeRiver', icon: '🌊', description: 'Flowing time series' },
   ],
@@ -45,14 +45,13 @@ const CHART_CATEGORIES = {
     { type: 'gantt', name: 'Gantt Chart', icon: '📅', description: 'Project timeline' },
   ],
   'Geographic': [
-    { type: 'geo', name: 'Geo Points', icon: '📍', description: 'Plot locations with coordinates' },
-    { type: 'map', name: 'Regional Map', icon: '🗺️', description: 'Color regions by value' },
+    { type: 'geopoints', name: 'Geo Points', icon: '📍', description: 'Plot locations with coordinates' },
+    { type: 'regionalMap', name: 'Regional Map', icon: '🗺️', description: 'Color regions by value' },
   ],
   '3D Charts': [
-    { type: 'line3d', name: '3D Line', icon: '🎲', description: '3D line trajectory' },
-    { type: 'bar3d', name: '3D Bar', icon: '📊', description: '3D bar chart' },
-    { type: 'scatter3d', name: '3D Scatter', icon: '🎯', description: '3D scatter plot' },
-    { type: 'surface3d', name: '3D Surface', icon: '🏔️', description: '3D mesh surface' },
+    { type: 'line3D', name: '3D Line', icon: '🎲', description: '3D line trajectory' },
+    { type: 'bar3D', name: '3D Bar', icon: '📊', description: '3D bar chart' },
+    { type: 'scatter3D', name: '3D Scatter', icon: '🎯', description: '3D scatter plot' },
   ],
 };
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { validateNumericColumn, validateColumnExists } from '../../../utils/chartValidation';
 
 interface CandlestickChartConfigProps {
   sheetData: { headers: string[]; rows: string[][] } | null;
@@ -8,220 +9,163 @@ interface CandlestickChartConfigProps {
 export function CandlestickChartConfig({ sheetData, onPreviewChange }: CandlestickChartConfigProps) {
   const [dateColumn, setDateColumn] = useState('');
   const [openColumn, setOpenColumn] = useState('');
-  const [highColumn, setHighColumn] = useState('');
-  const [lowColumn, setLowColumn] = useState('');
   const [closeColumn, setCloseColumn] = useState('');
+  const [lowColumn, setLowColumn] = useState('');
+  const [highColumn, setHighColumn] = useState('');
   const [title, setTitle] = useState('');
 
   useEffect(() => {
-    if (!sheetData || !dateColumn || !openColumn || !highColumn || !lowColumn || !closeColumn) return;
+    if (!sheetData || !dateColumn || !openColumn || !closeColumn || !lowColumn || !highColumn) {
+      onPreviewChange(null);
+      return;
+    }
 
-    const dateIndex = sheetData.headers.indexOf(dateColumn);
-    const openIndex = sheetData.headers.indexOf(openColumn);
-    const highIndex = sheetData.headers.indexOf(highColumn);
-    const lowIndex = sheetData.headers.indexOf(lowColumn);
-    const closeIndex = sheetData.headers.indexOf(closeColumn);
+    const dateValidation = validateColumnExists(sheetData.headers, dateColumn);
+    if (!dateValidation.isValid) {
+      onPreviewChange({ error: dateValidation.error });
+      return;
+    }
 
-    if (dateIndex === -1 || openIndex === -1 || highIndex === -1 || lowIndex === -1 || closeIndex === -1) return;
+    const formattedRows = sheetData.rows.map(row => {
+      const obj: any = {};
+      sheetData.headers.forEach((header, idx) => {
+        obj[header] = row[idx];
+      });
+      return obj;
+    });
 
-    const dates = sheetData.rows.map(row => row[dateIndex]);
-    const candlestickData = sheetData.rows.map(row => [
-      parseFloat(row[openIndex]) || 0,
-      parseFloat(row[closeIndex]) || 0,
-      parseFloat(row[lowIndex]) || 0,
-      parseFloat(row[highIndex]) || 0
+    const columns = [openColumn, closeColumn, lowColumn, highColumn];
+    for (const col of columns) {
+      const validation = validateNumericColumn(sheetData.headers, formattedRows, col);
+      if (!validation.isValid) {
+        onPreviewChange({ error: `${col}: ${validation.error}` });
+        return;
+      }
+    }
+
+    const dates = formattedRows.map(r => String(r[dateColumn]));
+    const candleData = formattedRows.map(r => [
+      parseFloat(r[openColumn]),
+      parseFloat(r[closeColumn]),
+      parseFloat(r[lowColumn]),
+      parseFloat(r[highColumn])
     ]);
 
     const config = {
-      title: { 
-        text: title || 'Candlestick Chart (Kline)', 
-        left: 'center',
-        textStyle: { fontSize: 18 }
-      },
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: {
-          type: 'cross'
-        },
-        formatter: (params: any) => {
-          const data = params[0].data;
-          return `${params[0].name}<br/>
-                  Open: ${data[1]}<br/>
-                  Close: ${data[2]}<br/>
-                  Low: ${data[3]}<br/>
-                  High: ${data[4]}`;
-        }
-      },
-      grid: {
-        left: '10%',
-        right: '10%',
-        bottom: '15%',
-        containLabel: true
-      },
-      xAxis: {
-        type: 'category',
-        data: dates,
-        scale: true,
-        boundaryGap: false,
-        axisLine: { onZero: false },
-        splitLine: { show: false },
-        min: 'dataMin',
-        max: 'dataMax',
-        axisLabel: {
-          rotate: 45
-        }
-      },
-      yAxis: {
-        scale: true,
-        splitArea: {
-          show: true
-        }
-      },
-      dataZoom: [
-        {
-          type: 'inside',
-          start: 0,
-          end: 100
-        },
-        {
-          show: true,
-          type: 'slider',
-          bottom: 10,
-          start: 0,
-          end: 100
-        }
-      ],
+      title: { text: title || 'Candlestick Chart', left: 'center' },
+      tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+      xAxis: { type: 'category', data: dates },
+      yAxis: { type: 'value' },
       series: [{
-        name: 'Candlestick',
         type: 'candlestick',
-        data: candlestickData,
-        itemStyle: {
-          color: '#ef5350',
-          color0: '#26a69a',
-          borderColor: '#ef5350',
-          borderColor0: '#26a69a'
-        },
-        emphasis: {
-          itemStyle: {
-            borderWidth: 2,
-            shadowBlur: 10,
-            shadowColor: 'rgba(0, 0, 0, 0.3)'
-          }
-        }
+        data: candleData
       }],
-      animation: true,
-      animationDuration: 1000,
-      animationEasing: 'cubicOut'
+      _columnMetadata: {
+        date: dateColumn,
+        open: openColumn,
+        close: closeColumn,
+        low: lowColumn,
+        high: highColumn,
+        chartType: 'candlestick'
+      }
     };
 
     onPreviewChange(config);
-  }, [dateColumn, openColumn, highColumn, lowColumn, closeColumn, title, sheetData, onPreviewChange]);
+  }, [sheetData, dateColumn, openColumn, closeColumn, lowColumn, highColumn, title]);
+
+  if (!sheetData) {
+    return <div className="text-gray-500">No data available</div>;
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">📊 Configure Candlestick Chart (Kline)</h3>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Chart Title
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Stock Price Chart"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Chart Title</label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          placeholder="Candlestick Chart"
+        />
+      </div>
 
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Date Column</label>
+        <select
+          value={dateColumn}
+          onChange={(e) => setDateColumn(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        >
+          <option value="">Select column</option>
+          {sheetData.headers.map((header) => (
+            <option key={header} value={header}>{header}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Date/Time Column *
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Open</label>
           <select
-            value={dateColumn}
-            onChange={(e) => setDateColumn(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            value={openColumn}
+            onChange={(e) => setOpenColumn(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
           >
-            <option value="">Select column...</option>
-            {sheetData?.headers.map((header) => (
+            <option value="">Select</option>
+            {sheetData.headers.map((header) => (
               <option key={header} value={header}>{header}</option>
             ))}
           </select>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Open Price *
-            </label>
-            <select
-              value={openColumn}
-              onChange={(e) => setOpenColumn(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select...</option>
-              {sheetData?.headers.map((header) => (
-                <option key={header} value={header}>{header}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Close Price *
-            </label>
-            <select
-              value={closeColumn}
-              onChange={(e) => setCloseColumn(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select...</option>
-              {sheetData?.headers.map((header) => (
-                <option key={header} value={header}>{header}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              High Price *
-            </label>
-            <select
-              value={highColumn}
-              onChange={(e) => setHighColumn(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select...</option>
-              {sheetData?.headers.map((header) => (
-                <option key={header} value={header}>{header}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Low Price *
-            </label>
-            <select
-              value={lowColumn}
-              onChange={(e) => setLowColumn(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select...</option>
-              {sheetData?.headers.map((header) => (
-                <option key={header} value={header}>{header}</option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Close</label>
+          <select
+            value={closeColumn}
+            onChange={(e) => setCloseColumn(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          >
+            <option value="">Select</option>
+            {sheetData.headers.map((header) => (
+              <option key={header} value={header}>{header}</option>
+            ))}
+          </select>
         </div>
 
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <p className="text-sm text-blue-800">
-            💡 Candlestick requires 5 columns: Date, Open, High, Low, Close (OHLC data). Green = price up, Red = price down. Includes zoom slider!
-          </p>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Low</label>
+          <select
+            value={lowColumn}
+            onChange={(e) => setLowColumn(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          >
+            <option value="">Select</option>
+            {sheetData.headers.map((header) => (
+              <option key={header} value={header}>{header}</option>
+            ))}
+          </select>
         </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">High</label>
+          <select
+            value={highColumn}
+            onChange={(e) => setHighColumn(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          >
+            <option value="">Select</option>
+            {sheetData.headers.map((header) => (
+              <option key={header} value={header}>{header}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <p className="text-sm text-blue-800">
+          💡 Requires: Date, Open, Close, Low, High columns (OHLC data)
+        </p>
       </div>
     </div>
   );
